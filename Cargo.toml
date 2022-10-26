@@ -1,0 +1,16 @@
+[package]
+name = "kuber_rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.0.18", features = ["derive"] }
+tui = "0.19.0"
+crossterm = "0.25" # required by tui
+thiserror = "1.0"
+
+
+# https://blog.logrocket.com/rust-and-tui-building-a-command-line-interface-in-rust/
+# https://monkeypatch.io/blog/2021/2021-05-31-rust-tui/
