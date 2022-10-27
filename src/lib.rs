@@ -1,19 +1,29 @@
 use std::process::Command;
 
+use errors::Error;
+use pod::Pod;
+
 pub mod errors;
 pub mod event;
-pub mod menu;
-pub mod ui;
 pub mod pod;
+pub mod ui;
 
-pub fn load_all_pods(namespace: &str) {
+pub fn load_all_pods(namespace: &str) -> Result<Vec<Pod>, Error> {
     let output = Command::new("/usr/local/bin/kubectl")
         .args(["get", "pods"])
         .args(["-n", namespace])
-        .output()
-        .expect("Couldn't load pods");
+        .output()?;
 
-    println!("Pods:\n{}", String::from_utf8_lossy(&output.stdout));
+    let parsed_output = String::from_utf8_lossy(&output.stdout);
+
+    let pods: Vec<Pod> = parsed_output
+        .lines()
+        .map(|it| it.parse())
+        .filter(|it| it.is_ok())
+        .map(|it| it.unwrap())
+        .collect();
+
+    Ok(pods)
 }
 
 pub fn load_namespaces() {

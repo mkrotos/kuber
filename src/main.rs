@@ -1,4 +1,4 @@
-use kuber_rs::{self, ui};
+use kuber_rs::{self, ui, errors::Error};
 
 fn main() {
     println!("Started");
@@ -6,7 +6,14 @@ fn main() {
 
     println!("namespace: {:?}", args.namespace);
 
-    ui::start().expect("should start");
+    let pods = match kuber_rs::load_all_pods(&args.namespace) {
+        Ok(pods) => pods,
+        Err(err) => match err {
+            Error::KubecltNotFound(io_err) => panic!("Failed to execute kubectl command. Error: {io_err}"),
+            Error::ParseOutputError => panic!("should not fail here, because parse error should be handled in lib"),
+        },
+    };
+    ui::start(&args.namespace, pods).expect("should start");
 }
 
 use clap::Parser;
