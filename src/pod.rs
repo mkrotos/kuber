@@ -11,27 +11,6 @@ pub struct Pod {
     pub age: String,
 }
 
-impl Pod {
-    pub fn default() -> Pod {
-        Pod {
-            name: "some-pod".to_string(),
-            ready: "1/1".to_string(),
-            status: "Ready".to_string(),
-            restarts: "0".to_string(),
-            age: "1d".to_string(),
-        }
-    }
-    pub fn default2() -> Pod {
-        Pod {
-            name: "some-pod-2".to_string(),
-            ready: "1/2".to_string(),
-            status: "Broken".to_string(),
-            restarts: "0".to_string(),
-            age: "1d".to_string(),
-        }
-    }
-}
-
 impl FromStr for Pod {
     type Err = Error;
 
@@ -43,25 +22,27 @@ impl FromStr for Pod {
             return Err(Error::ParseOutputError);
         };
 
-        let mut restarts_opt;
-        let age;
-
+        // Should be a number of restarts
         if parts[3].parse::<u16>().is_err() {
             return Err(Error::ParseOutputError);
         }
 
+        let restarts;
+        let age;
+
         if parts.len() == 7 {
-            restarts_opt = Some(parts[3..=5].join(" "));
+            // ex: 1 (8d ago)
+            restarts = parts[3..=5].join(" ");
             age = parts[6].to_string();
         } else {
-            restarts_opt = Some(parts[3].to_string());
+            // ex: 0
+            restarts = parts[3].to_string();
             age = parts[4].to_string();
         }
 
         let name = parts[0].to_string();
         let ready = parts[1].to_string();
         let status = parts[2].to_string();
-        let restarts = restarts_opt.take().expect("restarts should never be None");
 
         Ok(Pod {
             name,
@@ -120,9 +101,12 @@ mod tests {
 
     #[test]
     fn should_not_parse_headers() {
+        //given
         let header =
             "NAME                                           READY   STATUS    RESTARTS       AGE";
+        //when
         let result: Result<Pod, Error> = header.parse();
-        result.unwrap_err(); // Is error
+        // then expect error
+        result.unwrap_err();
     }
 }
