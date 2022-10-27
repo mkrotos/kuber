@@ -1,14 +1,14 @@
 #[derive(Debug, Copy, Clone)]
-enum MenuItem {
+pub enum MenuItem {
     Home,
-    Settings,
+    Pods,
 }
 
-impl From<MenuItem> for usize {
-    fn from(input: MenuItem) -> Self {
+impl From<&MenuItem> for usize {
+    fn from(input: &MenuItem) -> Self {
         match input {
             MenuItem::Home => 0,
-            MenuItem::Settings => 1,
+            MenuItem::Pods => 1,
         }
     }
 }

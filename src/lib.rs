@@ -3,6 +3,8 @@ use std::process::Command;
 pub mod errors;
 pub mod event;
 pub mod menu;
+pub mod ui;
+pub mod pod;
 
 pub fn load_all_pods(namespace: &str) {
     let output = Command::new("/usr/local/bin/kubectl")

@@ -1,6 +1,4 @@
-use kuber_rs;
-mod ui_example;
-mod ui;
+use kuber_rs::{self, ui};
 
 fn main() {
     println!("Started");
@@ -8,10 +6,7 @@ fn main() {
 
     println!("namespace: {:?}", args.namespace);
 
-    // kuber_rs::load_all_pods(&args.namespace);
-    // kuber_rs::load_namespaces();
-    // ui_example::main();
-    
+    ui::start().expect("should start");
 }
 
 use clap::Parser;

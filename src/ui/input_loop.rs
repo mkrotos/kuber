@@ -1,16 +1,16 @@
 use std::{
-    sync::mpsc,
+    sync::mpsc::{self, Receiver},
     thread,
     time::{Duration, Instant},
 };
 
+use crate::event::Event;
 use crossterm::{
-    event::{self, Event as CEvent},
+    event::{self, Event as CEvent, KeyEvent},
     terminal::enable_raw_mode,
 };
-use kuber_rs::event::Event;
 
-fn startInputLoop() -> Result<(), Box<dyn std::error::Error>> {
+pub fn start_input_loop() -> Result<Receiver<Event<KeyEvent>>, Box<dyn std::error::Error>> {
     enable_raw_mode().expect("can run in raw mode");
     let (tx, rx) = mpsc::channel();
     let tick_rate = Duration::from_millis(200);
@@ -34,5 +34,5 @@ fn startInputLoop() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     });
-    Ok(())
+    Ok(rx)
 }
