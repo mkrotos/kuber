@@ -1,74 +1,70 @@
 use std::{
     io::{self, Stdout},
-    sync::mpsc::Receiver,
+    time::Duration,
 };
 
-use crate::{event::Event, pod::Pod};
-use crossterm::{event::KeyEvent, terminal::disable_raw_mode};
+use crate::{
+    app::App,
+    input::{self, event_loop::EventLoop},
+};
+use crossterm::terminal::disable_raw_mode;
 use tui::{
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
+    terminal::CompletedFrame,
     widgets::ListState,
     Terminal,
 };
 
-use self::key_mapper::InputAction;
-
 mod footer;
 mod header;
-mod input_loop;
-mod key_mapper;
 mod main_body;
 
-pub struct UI {
+pub struct UI<'a> {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     pod_list_state: ListState,
-    input_receiver: Receiver<Event<KeyEvent>>,
-    stop: bool,
+    event_loop: EventLoop,
+    app: &'a mut App,
 }
 
-impl UI {
-    pub fn init() -> Result<UI, Box<dyn std::error::Error>> {
+impl<'a> UI<'a> {
+    pub fn init(app: &mut App) -> Result<UI, Box<dyn std::error::Error>> {
         let stdout = io::stdout();
         let backend = CrosstermBackend::new(stdout);
         let terminal = Terminal::new(backend)?;
 
-        let mut pod_list_state = ListState::default();
-        pod_list_state.select(Some(0));
+        let pod_list_state = ListState::default();
 
-        let input_receiver = input_loop::start_input_loop()?;
+        let tick_rate = Duration::from_millis(200);
+        let event_loop = EventLoop::start(tick_rate);
 
         Ok(UI {
             terminal,
             pod_list_state,
-            input_receiver,
-            stop: false,
+            event_loop,
+            app,
         })
     }
 
-    pub fn start(
-        self: &mut Self,
-        namespace: &str,
-        pods: Vec<Pod>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn start(self: &mut Self) -> Result<(), Box<dyn std::error::Error>> {
         self.terminal.clear()?;
 
-        while !self.stop {
-            self.draw_screen(namespace, &pods)?;
-            self.handle_input(pods.len())?;
+        while *self.app.running() {
+            self.draw_screen()?;
+            self.handle_input()?;
         }
 
+        self.terminal.clear()?;
         disable_raw_mode()?;
         self.terminal.show_cursor()?;
         Ok(())
     }
 
-    fn draw_screen(
-        self: &mut Self,
-        namespace: &str,
-        pods: &Vec<Pod>,
-    ) -> Result<tui::terminal::CompletedFrame, io::Error> {
+    fn draw_screen(&mut self) -> Result<CompletedFrame, io::Error> {
         self.terminal.draw(|rect| {
+            let pods = self.app.pods().expect("todo");
+            let namespace = self.app.namespace();
+
             let size = rect.size();
             let chunks = split_screen_vertically(size);
 
@@ -77,8 +73,10 @@ impl UI {
 
             let pods_chunks = split_body_horizontally(chunks[1]);
 
+            self.pod_list_state.select(self.app.selected_pod_index);
+
             let pods_list = main_body::render_pods_list(pods);
-            let selected_pod = find_selected_pod(pods, &self.pod_list_state);
+            let selected_pod = self.app.get_selected_pod();
 
             let pod_details = main_body::render_pod_details(selected_pod.clone());
             rect.render_stateful_widget(pods_list, pods_chunks[0], &mut self.pod_list_state);
@@ -86,49 +84,19 @@ impl UI {
         })
     }
 
-    fn handle_input(self: &mut Self, pods_number: usize) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(action) = key_mapper::map_input(self.input_receiver.recv()?) {
-            match action {
-                InputAction::Quit => {
-                    self.stop = true;
-                }
-                InputAction::NextPod => {
-                    if let Some(selected) = self.pod_list_state.selected() {
-                        if selected >= pods_number - 1 {
-                            self.pod_list_state.select(Some(0));
-                        } else {
-                            self.pod_list_state.select(Some(selected + 1));
-                        }
-                    }
-                }
-                InputAction::PreviousPod => {
-                    if let Some(selected) = self.pod_list_state.selected() {
-                        if selected > 0 {
-                            self.pod_list_state.select(Some(selected - 1));
-                        } else {
-                            self.pod_list_state.select(Some(pods_number - 1));
-                        }
-                    }
-                }
-            }
+    fn handle_input(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(action) = input::map_input(self.event_loop.next()?) {
+            self.app.take_action(action);
         };
 
         Ok(())
     }
 }
 
-fn split_body_horizontally(chunk: Rect) -> Vec<Rect> {
-    let pods_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(20), Constraint::Percentage(80)].as_ref())
-        .split(chunk);
-    pods_chunks
-}
-
 fn split_screen_vertically(size: Rect) -> Vec<Rect> {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(2)
+        .margin(0)
         .constraints(
             [
                 Constraint::Length(3),
@@ -141,13 +109,10 @@ fn split_screen_vertically(size: Rect) -> Vec<Rect> {
     chunks
 }
 
-fn find_selected_pod<'a>(pods: &'a Vec<Pod>, pod_list_state: &ListState) -> &'a Pod {
-    let selected_pod = pods
-        .get(
-            pod_list_state
-                .selected()
-                .expect("there is always a selected pod"),
-        )
-        .expect("exists");
-    selected_pod
+fn split_body_horizontally(chunk: Rect) -> Vec<Rect> {
+    let pods_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(20), Constraint::Percentage(80)].as_ref())
+        .split(chunk);
+    pods_chunks
 }

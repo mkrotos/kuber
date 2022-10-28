@@ -4,9 +4,10 @@ use errors::Error;
 use pod::Pod;
 
 pub mod errors;
-pub mod event;
 pub mod pod;
 pub mod ui;
+pub mod app;
+pub mod input;
 
 pub fn load_all_pods(namespace: &str) -> Result<Vec<Pod>, Error> {
     let output = Command::new("/usr/local/bin/kubectl")

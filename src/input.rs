@@ -1,6 +1,14 @@
-use crossterm::event::{KeyEvent, KeyCode};
+use crossterm::event::{KeyCode, KeyEvent};
 
-use crate::event::Event;
+use self::event_loop::Event;
+
+pub mod event_loop;
+
+pub enum InputAction {
+    Quit,
+    NextPod,
+    PreviousPod,
+}
 
 pub fn map_input(input: Event<KeyEvent>) -> Option<InputAction> {
     match input {
@@ -12,10 +20,4 @@ pub fn map_input(input: Event<KeyEvent>) -> Option<InputAction> {
         },
         Event::Tick => None,
     }
-}
-
-pub enum InputAction {
-    Quit,
-    NextPod,
-    PreviousPod,
 }
