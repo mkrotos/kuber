@@ -68,19 +68,25 @@ impl<'a> UI<'a> {
             let size = rect.size();
             let chunks = split_screen_vertically(size);
 
+            // Draw header and footer
             rect.render_widget(header::render_info(namespace), chunks[0]);
             rect.render_widget(footer::render_footer(), chunks[2]);
 
             let pods_chunks = split_body_horizontally(chunks[1]);
-
-            self.pod_list_state.select(self.app.selected_pod_index);
+            let (details_chunk, logs_chunk) = split_pod_details_vertically(pods_chunks[1]);
 
             let pods_list = main_body::render_pods_list(pods);
             let selected_pod = self.app.get_selected_pod();
-
             let pod_details = main_body::render_pod_details(selected_pod.clone());
+            self.pod_list_state.select(self.app.selected_pod_index);
+
+            // let logs_chunk_size = (logs_chunk.x, logs_chunk.y)
+            let pod_logs = main_body::render_pod_logs(self.app.get_logged_pod_name(), self.app.pod_logs());
+
+            // Draw main body
             rect.render_stateful_widget(pods_list, pods_chunks[0], &mut self.pod_list_state);
-            rect.render_widget(pod_details, pods_chunks[1]);
+            rect.render_widget(pod_details, details_chunk);
+            rect.render_widget(pod_logs, logs_chunk)
         })
     }
 
@@ -115,4 +121,12 @@ fn split_body_horizontally(chunk: Rect) -> Vec<Rect> {
         .constraints([Constraint::Percentage(20), Constraint::Percentage(80)].as_ref())
         .split(chunk);
     pods_chunks
+}
+
+fn split_pod_details_vertically(chunk: Rect) -> (Rect, Rect) {
+    let details_chunk = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
+        .split(chunk);
+    (details_chunk[0], details_chunk[1])
 }

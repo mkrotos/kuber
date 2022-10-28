@@ -1,7 +1,7 @@
 use crate::pod::Pod;
 
 use tui::{
-    layout::Constraint,
+    layout::{Constraint, Corner::BottomLeft},
     style::{Color, Modifier, Style},
     text::{Span, Spans},
     widgets::{Block, BorderType, Borders, Cell, List, ListItem, Row, Table},
@@ -76,4 +76,41 @@ fn header_cell(title: &str) -> Cell {
         title,
         Style::default().add_modifier(Modifier::BOLD),
     ))
+}
+
+pub fn render_pod_logs<'a>(
+    pod_name: Option<String>,
+    logs_opt: Option<&'a Vec<String>>,
+) -> List<'a> {
+    let pods = Block::default()
+        .borders(Borders::ALL)
+        .style(Style::default().fg(Color::White))
+        .title(match pod_name {
+            Some(pod_name) => format!("Logs: {pod_name}"),
+            None => "Logs".to_string(),
+        })
+        .border_type(BorderType::Plain);
+
+    let items: Vec<_> = match logs_opt {
+        Some(logs) => logs
+            .iter()
+            .rev()
+            .take(50)
+            // .rev()
+            .map(|it| default_list_item(it))
+            .collect(),
+        None => vec![default_list_item("Press 'Enter' to load pod logs.")],
+    };
+
+    // let list = List::new(items).block(pods);
+    let list = List::new(items).block(pods).start_corner(BottomLeft);
+
+    list
+}
+
+fn default_list_item(value: &str) -> ListItem {
+    ListItem::new(Spans::from(vec![Span::styled(
+        value.clone(),
+        Style::default(),
+    )]))
 }

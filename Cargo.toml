@@ -14,3 +14,4 @@ thiserror = "1.0"
 
 # https://blog.logrocket.com/rust-and-tui-building-a-command-line-interface-in-rust/
 # https://monkeypatch.io/blog/2021/2021-05-31-rust-tui/
+# https://lib.rs/crates/tui-textarea
