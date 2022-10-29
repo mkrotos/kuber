@@ -81,7 +81,7 @@ impl<'a> UI<'a> {
             self.pod_list_state.select(self.app.selected_pod_index);
 
             // let logs_chunk_size = (logs_chunk.x, logs_chunk.y)
-            let pod_logs = main_body::render_pod_logs(self.app.get_logged_pod_name(), self.app.pod_logs());
+            let pod_logs = main_body::render_pod_logs(self.app.get_logged_pod_name(), self.app.pod_logs(), &logs_chunk.width);
 
             // Draw main body
             rect.render_stateful_widget(pods_list, pods_chunks[0], &mut self.pod_list_state);

@@ -81,6 +81,7 @@ fn header_cell(title: &str) -> Cell {
 pub fn render_pod_logs<'a>(
     pod_name: Option<String>,
     logs_opt: Option<&'a Vec<String>>,
+    chunk_width: &u16,
 ) -> List<'a> {
     let pods = Block::default()
         .borders(Borders::ALL)
@@ -97,20 +98,25 @@ pub fn render_pod_logs<'a>(
             .rev()
             .take(50)
             // .rev()
-            .map(|it| default_list_item(it))
+            .map(|it| default_list_item(it, chunk_width))
             .collect(),
-        None => vec![default_list_item("Press 'Enter' to load pod logs.")],
+        None => vec![default_list_item(
+            "Press 'Enter' to load pod logs.",
+            chunk_width,
+        )],
     };
 
     // let list = List::new(items).block(pods);
     let list = List::new(items).block(pods).start_corner(BottomLeft);
-
     list
 }
 
-fn default_list_item(value: &str) -> ListItem {
-    ListItem::new(Spans::from(vec![Span::styled(
-        value.clone(),
-        Style::default(),
-    )]))
+fn default_list_item<'a>(value: &'a str, chunk_width: &u16) -> ListItem<'a> {
+    let spans: Vec<_> = textwrap::wrap(value, *chunk_width as usize)
+        .into_iter()
+        .map(|it| Span::styled(it, Style::default()))
+        .map(|it| Spans::from(it))
+        .collect();
+
+    ListItem::new(spans)
 }
