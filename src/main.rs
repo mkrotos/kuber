@@ -7,7 +7,7 @@ fn main() {
     println!("namespace: {:?}", args.namespace);
 
     let mut app = App::new(args.namespace);
-    let mut ui = UI::init(&mut app).expect("should be able to init UI");
+    let mut ui = UI::new(&mut app);
     ui.start().expect("should start");
 }
 

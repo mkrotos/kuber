@@ -97,7 +97,6 @@ pub fn render_pod_logs<'a>(
             .iter()
             .rev()
             .take(50)
-            // .rev()
             .map(|it| default_list_item(it, chunk_width))
             .collect(),
         None => vec![default_list_item(

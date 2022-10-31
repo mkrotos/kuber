@@ -9,6 +9,8 @@ pub enum InputAction {
     NextPod,
     PreviousPod,
     FetchLogs,
+    LogsUp,
+    LogsDown,
 }
 
 pub fn map_input(input: Event<KeyEvent>) -> Option<InputAction> {
@@ -18,6 +20,8 @@ pub fn map_input(input: Event<KeyEvent>) -> Option<InputAction> {
             KeyCode::Down => Some(InputAction::NextPod),
             KeyCode::Up => Some(InputAction::PreviousPod),
             KeyCode::Enter => Some(InputAction::FetchLogs),
+            KeyCode::PageUp => Some(InputAction::LogsUp),
+            KeyCode::PageDown => Some(InputAction::LogsDown),
             _ => None,
         },
         Event::Tick => None,
