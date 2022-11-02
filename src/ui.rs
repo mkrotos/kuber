@@ -14,12 +14,13 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use tui::{
-    backend::CrosstermBackend,
+    backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect},
-    terminal::CompletedFrame,
     widgets::ListState,
     Terminal,
 };
+
+use self::main_body::LoggerWidget;
 
 mod footer;
 mod header;
@@ -30,6 +31,7 @@ pub struct UI<'a> {
     event_loop: EventLoop,
     app: &'a mut App,
     selected_pod_index: usize,
+    logger_widget: LoggerWidget,
 }
 
 impl<'a> UI<'a> {
@@ -40,11 +42,14 @@ impl<'a> UI<'a> {
         let tick_rate = Duration::from_millis(200);
         let event_loop = EventLoop::start(tick_rate);
 
+        let logger_widget = LoggerWidget::new(None);
+
         UI {
             pod_list_state,
             event_loop,
             app,
             selected_pod_index,
+            logger_widget,
         }
     }
 
@@ -52,8 +57,8 @@ impl<'a> UI<'a> {
         let mut terminal = prepare_terminal()?;
 
         while *self.app.running() {
-            self.draw_screen(&mut terminal)?;
-            self.handle_input()?;
+            let context = self.draw_screen(&mut terminal)?;
+            self.handle_input(context)?;
         }
 
         restore_terminal(terminal)?;
@@ -61,10 +66,15 @@ impl<'a> UI<'a> {
         Ok(())
     }
 
-    fn draw_screen<'b>(
+    fn draw_screen<'b, B>(
         &'b mut self,
-        terminal: &'b mut Terminal<CrosstermBackend<Stdout>>,
-    ) -> Result<CompletedFrame, io::Error> {
+        terminal: &'b mut Terminal<B>,
+    ) -> Result<UiContext, io::Error>
+    where
+        B: Backend,
+    {
+        let mut logs_chunk_height = 0;
+
         terminal.draw(|rect| {
             let pods = self
                 .app
@@ -87,26 +97,39 @@ impl<'a> UI<'a> {
             let pod_details = main_body::render_pod_details(selected_pod.clone());
             self.pod_list_state.select(Some(self.selected_pod_index));
 
-            let pod_logs = main_body::render_pod_logs(
-                self.app.get_logged_pod_name(),
-                self.app.pod_logs(),
-                &logs_chunk.width,
-            );
+            let pod_logs = self
+                .logger_widget
+                .render_pod_logs(self.app.pod_logs(), &logs_chunk.width);
 
             // Draw main body
             rect.render_stateful_widget(pods_list, pods_chunks[0], &mut self.pod_list_state);
             rect.render_widget(pod_details, details_chunk);
-            rect.render_widget(pod_logs, logs_chunk)
-        })
+            rect.render_widget(pod_logs, logs_chunk);
+
+            self.reset_logger_widget_if_required();
+
+            logs_chunk_height = logs_chunk.height;
+        })?;
+
+        Ok(UiContext { logs_chunk_height })
     }
 
-    fn handle_input(&mut self) -> Result<(), Box<dyn Error>> {
+    fn reset_logger_widget_if_required(&mut self) {
+        if self
+            .logger_widget
+            .should_update_widget(self.app.get_logged_pod_name())
+        {
+            self.logger_widget = LoggerWidget::new(self.app.get_logged_pod_name());
+        };
+    }
+
+    fn handle_input(&mut self, context: UiContext) -> Result<(), Box<dyn Error>> {
         if let Some(action) = input::map_input(self.event_loop.next()?) {
             match action {
                 InputAction::NextPod => self.select_next_pod(),
                 InputAction::PreviousPod => self.select_previous_pod(),
-                InputAction::LogsUp => todo!(),
-                InputAction::LogsDown => todo!(),
+                InputAction::LogsUp => self.logger_widget.page_up(context.logs_chunk_height),
+                InputAction::LogsDown => self.logger_widget.page_down(context.logs_chunk_height),
                 _ => {
                     let context = InputContext {
                         selected_pod_index: self.selected_pod_index,
@@ -169,7 +192,7 @@ fn split_screen_vertically(size: Rect) -> Vec<Rect> {
         .constraints(
             [
                 Constraint::Length(3),
-                Constraint::Min(2),
+                Constraint::Min(6),
                 Constraint::Length(3),
             ]
             .as_ref(),
@@ -189,11 +212,15 @@ fn split_body_horizontally(chunk: Rect) -> Vec<Rect> {
 fn split_pod_details_vertically(chunk: Rect) -> (Rect, Rect) {
     let details_chunk = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
+        .constraints([Constraint::Length(4), Constraint::Min(2)].as_ref())
         .split(chunk);
     (details_chunk[0], details_chunk[1])
 }
 
 pub struct InputContext {
     pub selected_pod_index: usize,
+}
+
+struct UiContext {
+    logs_chunk_height: u16,
 }

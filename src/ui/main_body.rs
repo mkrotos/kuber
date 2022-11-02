@@ -78,36 +78,68 @@ fn header_cell(title: &str) -> Cell {
     ))
 }
 
-pub fn render_pod_logs<'a>(
+pub struct LoggerWidget {
     pod_name: Option<String>,
-    logs_opt: Option<&'a Vec<String>>,
-    chunk_width: &u16,
-) -> List<'a> {
-    let pods = Block::default()
-        .borders(Borders::ALL)
-        .style(Style::default().fg(Color::White))
-        .title(match pod_name {
-            Some(pod_name) => format!("Logs: {pod_name}"),
-            None => "Logs".to_string(),
-        })
-        .border_type(BorderType::Plain);
+    offset: usize,
+}
 
-    let items: Vec<_> = match logs_opt {
-        Some(logs) => logs
-            .iter()
-            .rev()
-            .take(50)
-            .map(|it| default_list_item(it, chunk_width))
-            .collect(),
-        None => vec![default_list_item(
-            "Press 'Enter' to load pod logs.",
-            chunk_width,
-        )],
-    };
+impl LoggerWidget {
+    pub fn new(pod_name: Option<String>) -> LoggerWidget {
+        LoggerWidget {
+            pod_name,
+            offset: 0,
+        }
+    }
 
-    // let list = List::new(items).block(pods);
-    let list = List::new(items).block(pods).start_corner(BottomLeft);
-    list
+    pub fn should_update_widget(&self, actual_logged_pod_name: Option<String>) -> bool {
+        self.pod_name != actual_logged_pod_name
+    }
+
+    pub fn page_up(&mut self, _chunk_height: u16) {
+        self.offset += 1
+    }
+
+    pub fn page_down(&mut self, _chunk_height: u16) {//temp
+        if self.offset != 0 {
+            self.offset -= 1
+        }
+    }
+
+    pub fn render_pod_logs<'a>(
+        &self,
+        logs_opt: Option<&'a Vec<String>>,
+        chunk_width: &u16,
+    ) -> List<'a> {
+        let pods = Block::default()
+            .borders(Borders::ALL)
+            .style(Style::default().fg(Color::White))
+            .title(match &self.pod_name {
+                Some(pod_name) => format!("Logs: {pod_name}"),
+                None => "Logs".to_string(),
+            })
+            .border_type(BorderType::Plain);
+
+        let items: Vec<_> = match logs_opt {
+            Some(logs) => {
+                let length = logs.len();
+                let log_list: Vec<_> = logs
+                    .iter()
+                    .take(length - self.offset)
+                    .rev()
+                    .take(50 + self.offset)
+                    .map(|it| default_list_item(it, chunk_width))
+                    .collect();
+                log_list
+            }
+            None => vec![default_list_item(
+                "Press 'Enter' to load pod logs.",
+                chunk_width,
+            )],
+        };
+
+        let list = List::new(items).block(pods).start_corner(BottomLeft);
+        list
+    }
 }
 
 fn default_list_item<'a>(value: &'a str, chunk_width: &u16) -> ListItem<'a> {
