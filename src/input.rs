@@ -11,6 +11,7 @@ pub enum InputAction {
     FetchLogs,
     LogsUp,
     LogsDown,
+    LogsEnd,
 }
 
 pub fn map_input(input: Event<KeyEvent>) -> Option<InputAction> {
@@ -22,6 +23,7 @@ pub fn map_input(input: Event<KeyEvent>) -> Option<InputAction> {
             KeyCode::Enter => Some(InputAction::FetchLogs),
             KeyCode::PageUp => Some(InputAction::LogsUp),
             KeyCode::PageDown => Some(InputAction::LogsDown),
+            KeyCode::End => Some(InputAction::LogsEnd),
             _ => None,
         },
         Event::Tick => None,

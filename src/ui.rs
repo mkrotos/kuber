@@ -20,10 +20,11 @@ use tui::{
     Terminal,
 };
 
-use self::main_body::LoggerWidget;
+use self::logs::LoggerWidget;
 
 mod footer;
 mod header;
+mod logs;
 mod main_body;
 
 pub struct UI<'a> {
@@ -83,14 +84,17 @@ impl<'a> UI<'a> {
             let namespace = self.app.namespace();
 
             let size = rect.size();
-            let chunks = split_screen_vertically(size);
+            let (header_chunk, body_chunk, footer_chunk) = split_screen_vertically(size);
 
             // Draw header and footer
-            rect.render_widget(header::render_info(namespace), chunks[0]);
-            rect.render_widget(footer::render_footer(), chunks[2]);
+            rect.render_widget(header::render_info(namespace), header_chunk);
+            let (about_chunk, keys_chunk) = split_body_horizontally(footer_chunk);
+            rect.render_widget(footer::render_about(), about_chunk);
+            rect.render_widget(footer::render_keys(), keys_chunk);
 
-            let pods_chunks = split_body_horizontally(chunks[1]);
-            let (details_chunk, logs_chunk) = split_pod_details_vertically(pods_chunks[1]);
+            // Prepare main body
+            let (left_body_chunk, right_body_chunk) = split_body_horizontally(body_chunk);
+            let (details_chunk, logs_chunk) = split_pod_details_vertically(right_body_chunk);
 
             let pods_list = main_body::render_pods_list(pods);
             let selected_pod = self.app.get_pod(self.selected_pod_index);
@@ -102,12 +106,11 @@ impl<'a> UI<'a> {
                 .render_pod_logs(self.app.pod_logs(), &logs_chunk.width);
 
             // Draw main body
-            rect.render_stateful_widget(pods_list, pods_chunks[0], &mut self.pod_list_state);
+            rect.render_stateful_widget(pods_list, left_body_chunk, &mut self.pod_list_state);
             rect.render_widget(pod_details, details_chunk);
             rect.render_widget(pod_logs, logs_chunk);
 
             self.reset_logger_widget_if_required();
-
             logs_chunk_height = logs_chunk.height;
         })?;
 
@@ -130,6 +133,7 @@ impl<'a> UI<'a> {
                 InputAction::PreviousPod => self.select_previous_pod(),
                 InputAction::LogsUp => self.logger_widget.page_up(context.logs_chunk_height),
                 InputAction::LogsDown => self.logger_widget.page_down(context.logs_chunk_height),
+                InputAction::LogsEnd => self.logger_widget.end(),
                 _ => {
                     let context = InputContext {
                         selected_pod_index: self.selected_pod_index,
@@ -185,7 +189,7 @@ fn restore_terminal(
     Ok(())
 }
 
-fn split_screen_vertically(size: Rect) -> Vec<Rect> {
+fn split_screen_vertically(size: Rect) -> (Rect, Rect, Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(0)
@@ -198,15 +202,15 @@ fn split_screen_vertically(size: Rect) -> Vec<Rect> {
             .as_ref(),
         )
         .split(size);
-    chunks
+    (chunks[0], chunks[1], chunks[2])
 }
 
-fn split_body_horizontally(chunk: Rect) -> Vec<Rect> {
+fn split_body_horizontally(chunk: Rect) -> (Rect, Rect) {
     let pods_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(20), Constraint::Percentage(80)].as_ref())
         .split(chunk);
-    pods_chunks
+    (pods_chunks[0], pods_chunks[1])
 }
 
 fn split_pod_details_vertically(chunk: Rect) -> (Rect, Rect) {
